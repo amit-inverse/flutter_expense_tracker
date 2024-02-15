@@ -148,58 +148,62 @@ class _HomePageState extends State<HomePage> {
             onPressed: openNewExpenseBox,
             child: const Icon(Icons.add),
           ),
-          body: Column(
-            children: [
-              // graph ui
-              SizedBox(
-                height: 250,
-                child: FutureBuilder(
-                  future: _monthlyTotalsFuture,
-                  builder: (context, snapshot) {
-                    // data is loaded
-                    if (snapshot.connectionState == ConnectionState.done) {
-                      final monthlyTotals = snapshot.data ?? {};
+          body: SafeArea(
+            child: Column(
+              children: [
+                // graph ui
+                SizedBox(
+                  height: 250,
+                  child: FutureBuilder(
+                    future: _monthlyTotalsFuture,
+                    builder: (context, snapshot) {
+                      // data is loaded
+                      if (snapshot.connectionState == ConnectionState.done) {
+                        final monthlyTotals = snapshot.data ?? {};
 
-                      // create the list of monthly summary
-                      List<double> monthlySummary = List.generate(monthCount,
-                          (index) => monthlyTotals[startMonth + index] ?? 0.0);
+                        // create the list of monthly summary
+                        List<double> monthlySummary = List.generate(
+                            monthCount,
+                            (index) =>
+                                monthlyTotals[startMonth + index] ?? 0.0);
 
-                      return MyBarGraph(
-                          monthlySummary: monthlySummary,
-                          startMonth: startMonth);
-                    }
+                        return MyBarGraph(
+                            monthlySummary: monthlySummary,
+                            startMonth: startMonth);
+                      }
 
-                    // loading...
-                    else {
-                      return const Center(
-                        child: Text("Loading..."),
+                      // loading...
+                      else {
+                        return const Center(
+                          child: Text("Loading..."),
+                        );
+                      }
+                    },
+                  ),
+                ),
+
+                // expanded list ui
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: value.allExpense.length,
+                    itemBuilder: (context, index) {
+                      // get individual expense
+                      Expense individualExpense = value.allExpense[index];
+
+                      // return list tile ui
+                      return MyListTile(
+                        title: individualExpense.name,
+                        trailing: formatAmount(individualExpense.amount),
+                        onEditPressed: (context) =>
+                            openEditBox(individualExpense),
+                        onDeletePressed: (context) =>
+                            openDeleteBox(individualExpense),
                       );
-                    }
-                  },
+                    },
+                  ),
                 ),
-              ),
-
-              // expanded list ui
-              Expanded(
-                child: ListView.builder(
-                  itemCount: value.allExpense.length,
-                  itemBuilder: (context, index) {
-                    // get individual expense
-                    Expense individualExpense = value.allExpense[index];
-
-                    // return list tile ui
-                    return MyListTile(
-                      title: individualExpense.name,
-                      trailing: formatAmount(individualExpense.amount),
-                      onEditPressed: (context) =>
-                          openEditBox(individualExpense),
-                      onDeletePressed: (context) =>
-                          openDeleteBox(individualExpense),
-                    );
-                  },
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -241,6 +245,9 @@ class _HomePageState extends State<HomePage> {
           // save to db
           await context.read<ExpenseDatabase>().createNewExpense(newExpense);
 
+          // refresh graph
+          refreshGraphData();
+
           // clear controllers
           nameController.clear();
           amountController.clear();
@@ -279,6 +286,9 @@ class _HomePageState extends State<HomePage> {
               .read<ExpenseDatabase>()
               .updateExpense(existingId, updatedExpense);
 
+          // refresh graph
+          refreshGraphData();
+
           // clear controllers
           nameController.clear();
           amountController.clear();
@@ -297,6 +307,9 @@ class _HomePageState extends State<HomePage> {
 
         // delete expense from db
         await context.read<ExpenseDatabase>().deleteExpense(id);
+
+        // refresh graph
+        refreshGraphData();
       },
       child: const Text('Delete'),
     );
