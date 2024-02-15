@@ -2,6 +2,7 @@ import 'package:expense_tracker/databases/expense_database.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../bar_graphs/bar_graph.dart';
 import '../components/my_list_tile.dart';
 import '../helpers/helper_functions.dart';
 import '../models/expense.dart';
@@ -18,11 +19,24 @@ class _HomePageState extends State<HomePage> {
   TextEditingController nameController = TextEditingController();
   TextEditingController amountController = TextEditingController();
 
+  // futures to load graph data
+  Future<Map<int, double>>? _monthlyTotalsFuture;
+
   @override
   void initState() {
+    // read db on initial startup
     Provider.of<ExpenseDatabase>(context, listen: false).readExpense();
 
+    // load futures
+    refreshGraphData();
+
     super.initState();
+  }
+
+  // refresh graph data
+  void refreshGraphData() {
+    _monthlyTotalsFuture = Provider.of<ExpenseDatabase>(context, listen: false)
+        .calculateMonthlyTotals();
   }
 
   // open new expense box
@@ -115,27 +129,80 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Consumer<ExpenseDatabase>(
-      builder: (context, value, child) => Scaffold(
-        floatingActionButton: FloatingActionButton(
-          onPressed: openNewExpenseBox,
-          child: const Icon(Icons.add),
-        ),
-        body: ListView.builder(
-          itemCount: value.allExpense.length,
-          itemBuilder: (context, index) {
-            // get individual expense
-            Expense individualExpense = value.allExpense[index];
+      builder: (context, value, child) {
+        // get dates
+        int startMonth = value.geetStartMonth();
+        int startYear = value.geetStartYear();
+        int currentMonth = DateTime.now().month;
+        int currentYear = DateTime.now().year;
 
-            // return list tile ui
-            return MyListTile(
-              title: individualExpense.name,
-              trailing: formatAmount(individualExpense.amount),
-              onEditPressed: (context) => openEditBox(individualExpense),
-              onDeletePressed: (context) => openDeleteBox(individualExpense),
-            );
-          },
-        ),
-      ),
+        // calculate the number of months since the first month
+        int monthCount = calculateMonthCount(
+            startYear, startMonth, currentYear, currentMonth);
+
+        // only display the expenses for the current month
+
+        // return ui
+        return Scaffold(
+          floatingActionButton: FloatingActionButton(
+            onPressed: openNewExpenseBox,
+            child: const Icon(Icons.add),
+          ),
+          body: Column(
+            children: [
+              // graph ui
+              SizedBox(
+                height: 250,
+                child: FutureBuilder(
+                  future: _monthlyTotalsFuture,
+                  builder: (context, snapshot) {
+                    // data is loaded
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      final monthlyTotals = snapshot.data ?? {};
+
+                      // create the list of monthly summary
+                      List<double> monthlySummary = List.generate(monthCount,
+                          (index) => monthlyTotals[startMonth + index] ?? 0.0);
+
+                      return MyBarGraph(
+                          monthlySummary: monthlySummary,
+                          startMonth: startMonth);
+                    }
+
+                    // loading...
+                    else {
+                      return const Center(
+                        child: Text("Loading..."),
+                      );
+                    }
+                  },
+                ),
+              ),
+
+              // expanded list ui
+              Expanded(
+                child: ListView.builder(
+                  itemCount: value.allExpense.length,
+                  itemBuilder: (context, index) {
+                    // get individual expense
+                    Expense individualExpense = value.allExpense[index];
+
+                    // return list tile ui
+                    return MyListTile(
+                      title: individualExpense.name,
+                      trailing: formatAmount(individualExpense.amount),
+                      onEditPressed: (context) =>
+                          openEditBox(individualExpense),
+                      onDeletePressed: (context) =>
+                          openDeleteBox(individualExpense),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

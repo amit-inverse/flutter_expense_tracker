@@ -82,4 +82,58 @@ class ExpenseDatabase extends ChangeNotifier {
   H E L P E R S
 
   */
+
+  // calculate total expenses for each month
+  Future<Map<int, double>> calculateMonthlyTotals() async {
+    // ensure the expenses are read from the db
+    await readExpense();
+
+    // create a map to keep track of total expenses per month
+    Map<int, double> monthlyTotals = {
+      // 0: 25    jan
+      // 1: 100   feb
+    };
+
+    // iterate over all expenses
+    for (var expense in _allExpenses) {
+      // extract the month from the date of the expense
+      int month = expense.date.month;
+
+      // if the month is not yet in the map, initialize to 0
+      if (!monthlyTotals.containsKey(month)) {
+        monthlyTotals[month] = 0;
+      }
+
+      // add the expense amount to the total for the month
+      monthlyTotals[month] = monthlyTotals[month]! + expense.amount;
+    }
+
+    return monthlyTotals;
+  }
+
+  // get start month
+  int geetStartMonth() {
+    if (_allExpenses.isEmpty) {
+      return DateTime.now()
+          .month; // default to current month if no expenses are recorded
+    }
+
+    // sort expenses by date to find the earliest
+    _allExpenses.sort((a, b) => a.date.compareTo(b.date));
+
+    return _allExpenses.first.date.month;
+  }
+
+  // gete start year
+  int geetStartYear() {
+    if (_allExpenses.isEmpty) {
+      return DateTime.now()
+          .year; // default to current year if no expenses are recorded
+    }
+
+    // sort expenses by date to find the earliest
+    _allExpenses.sort((a, b) => a.date.compareTo(b.date));
+
+    return _allExpenses.first.date.year;
+  }
 }
